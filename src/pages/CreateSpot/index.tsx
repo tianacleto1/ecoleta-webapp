@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft } from 'react-icons/fi';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
@@ -6,6 +6,7 @@ import api from '../../services/api';
 
 import './styles.css';
 import logo from '../../assets/logo.svg';
+import axios from 'axios';
 
 interface Item {
   id: number,
@@ -13,15 +14,70 @@ interface Item {
   image_url: string;
 }
 
+interface IBGEStatesResponse {
+  sigla: string;
+}
+
+interface IBGECityResponse {
+  nome: string;  
+}
+
 const CreateSpot = () => {
 
   const [items, setItems] = useState<Item[]>([]);
+  const [states, setStates] = useState<Array<string>>([]);
+  const [cities, setCities] = useState<Array<string>>([]);
+  
+  const [selectedState, setSelectedState] = useState('0');
+  const [selectedCity, setSelectedCity] = useState('0'); 
 
   useEffect(() => {
     api.get('items').then(response => {
       setItems(response.data);
     })
   }, []);
+
+  useEffect(() => {
+    axios.get<Array<IBGEStatesResponse>>('https://servicodados.ibge.gov.br/api/v1/localidades/estados').then(response => {
+      const stateInitials = response.data.map(state => state.sigla);
+      
+      setStates(stateInitials);
+    }).catch(err => {
+      console.log(err);
+    })
+  }, []);
+
+  useEffect(() => {
+    if (selectedState === '0') {
+      return;
+    }
+
+    axios.get<Array<IBGECityResponse>>(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${selectedState}/municipios`).then(response => {
+      const cityNames = response.data.map(city => city.nome);
+
+      console.log(`cities: ${cityNames}`);
+      
+      setCities(cityNames);    
+  }).catch(err => {
+    console.log(err);
+  });
+  }, [selectedState]);
+
+  function handleSelectState(event: ChangeEvent<HTMLSelectElement>) {
+    const state = event.target.value;
+
+    console.log(`state: ${event.target.value}`)
+
+    setSelectedState(state);
+  }
+
+  function handleSelectCity(event: ChangeEvent<HTMLSelectElement>) {
+    const city = event.target.value;
+
+    console.log(`city: ${event.target.value}`)
+
+    setSelectedCity(city);
+  }
 
   return (
     <div id="create-spot-page">
@@ -73,16 +129,30 @@ const CreateSpot = () => {
 
           <div className="field-group">
             <div className="field">
-              <label htmlFor="uf">Estado (UF)</label>
-              <select name="uf" id="uf">
-                <option value="0">Selecione um UF</option>
+              <label htmlFor="state">Estado (UF)</label>
+              <select name="state" 
+                      id="state" 
+                      value={selectedState}
+                      onChange={handleSelectState}
+              >
+                <option value="0">Selecione um estado</option>
+                {states.map(state => (
+                  <option key={state} value={state}>{state}</option>
+                ))}
               </select>
             </div>
 
             <div className="field">
               <label htmlFor="city">Cidade</label>
-              <select name="city " id="city">
+              <select name="city" 
+                      id="city"
+                      value={selectedCity}
+                      onChange={handleSelectCity}
+              >
                 <option value="0">Selecione uma cidade</option>
+                {cities.map(city => (
+                  <option key={city} value={city}>{city}</option>
+                ))}
               </select>
             </div>
           </div>
